@@ -1,2 +1,27 @@
-# memboard
-MemBoard is a lightweight React + Vite app that lets creators connect their wallet or Memory ID to visualize how their data connects across the web, and how much $MEM they could earn when apps query that data. It’s a starter example showing how the Memory Protocol API can power transparent, user-owned data dashboards in creator ecosystems.
+# 🧠 MemBoard – Creator Data Dashboard
+
+MemBoard is a minimal React app that demonstrates **how creators can connect to the Memory Protocol**, view their data connections, and simulate $MEM earnings.
+
+> Built for the [Memory Protocol Builder Rewards](https://memory.build).
+
+## Features
+- Connect Memory ID or wallet
+- Fetch and display data graph
+- Show mock $MEM earnings potential
+- Built with React + Tailwind + Vite
+
+## Setup
+
+```bash
+git clone https://github.com/YOUR_USERNAME/memboard.git
+cd memboard
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173).
+
+## File Overview
+- `src/api/memory.js` – API handler for Memory Protocol
+- `src/components/` – modular React components
+- `src/App.jsx` – main UI logic

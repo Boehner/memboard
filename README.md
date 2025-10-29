@@ -13,9 +13,10 @@ MemBoard is a minimal React app that demonstrates **how creators can connect to 
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/memboard.git
+git clone https://github.com/Boehner/memboard.git
 cd memboard
 npm install
+add .env and VITE_MEMORY_API_KEY=mem_yourkeyhere
 npm run dev
 ```
 

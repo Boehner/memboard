@@ -1,0 +1,15 @@
+export const platformThemes = {
+  ethereum: "bg-amber-900/30 border-amber-600/30",
+  "talent-protocol": "bg-sky-900/30 border-sky-500/30",
+  github: "bg-gray-800/60 border-gray-600/40",
+  twitter: "bg-blue-900/40 border-blue-600/40",
+  factory: "bg-amber-800/30 border-amber-700/40",
+  farcaster: "bg-purple-900/40 border-purple-700/40",
+  zora: "bg-gray-900/70 border-gray-700/40",
+  lens: "bg-green-900/40 border-green-600/30",
+  ens: "bg-indigo-900/40 border-indigo-600/30",
+  email: "bg-gray-800/60 border-gray-700/40",
+  website: "bg-slate-800/50 border-slate-600/40",
+  memory: "bg-cyan-900/30 border-cyan-600/40",
+  default: "bg-neutral-900/60 border-neutral-700/40",
+};

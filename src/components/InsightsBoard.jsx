@@ -49,6 +49,7 @@ function computeStats(identities = []) {
 // Removed PieChart in favor of readable breakdown bars.
 
 import { estimateUpcomingRewards, MEM_CONTRACT_ADDRESS } from '../api/memRewards';
+import { computeEngagementRank } from '../utils/computeEngagementRank';
 
 export default function InsightsBoard({ identities, wallet }) {
   const { totalFollowers, verifiedCount, pieData, estimatedMem } = useMemo(() => computeStats(identities), [identities]);
@@ -59,17 +60,34 @@ export default function InsightsBoard({ identities, wallet }) {
   }, [pieData]);
 
   const [onChain, setOnChain] = useState(null);
+  const [timerDone, setTimerDone] = useState(false);
+  const [onChainLoaded, setOnChainLoaded] = useState(false);
+  // Fetch on-chain data
   useEffect(() => {
     let mounted = true;
     async function run() {
-      if (!wallet || wallet.length < 8) return;
+      if (!wallet) return;
       if (MEM_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return; // skip placeholder
       const data = await estimateUpcomingRewards(wallet);
-      if (mounted) setOnChain(data);
+      if (mounted) {
+        setOnChain(data);
+        setOnChainLoaded(true);
+      }
     }
     run();
     return () => { mounted = false; };
   }, [wallet]);
+
+  // Minimum 2s loader display per wallet change
+  useEffect(() => {
+    setTimerDone(false);
+    setOnChain(null);
+    setOnChainLoaded(false);
+    const t = setTimeout(() => setTimerDone(true), 2000);
+    return () => clearTimeout(t);
+  }, [wallet]);
+
+  const engagement = useMemo(() => computeEngagementRank({ identities, onChain }), [identities, onChain]);
 
   return (
     <div className="w-full max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
@@ -86,18 +104,79 @@ export default function InsightsBoard({ identities, wallet }) {
           Calculated using verified connections, engagement, and Memory graph influence.
         </p>
         <div className="flex justify-center mb-6">
-          <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.5)]">
-            <div className="absolute inset-[2px] rounded-full bg-[#0b0f19]" />
-            <div className="relative z-10 text-white">
-              <p className="text-lg font-medium">Total</p>
-              <p className="text-3xl font-bold">${onChain?.projection?.toFixed(2) || estimatedMem}</p>
-              <p className="text-sm text-cyan-300">$MEM</p>
+          <div className="group relative w-48 h-48 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center shadow-[0_0_32px_rgba(139,92,246,0.5)]">
+            <div className="absolute inset-[3px] rounded-full bg-[#0b0f19]" />
+            {/* Wave animation overlay while loading (persists until both data & timer ready) */}
+            {!(timerDone && onChainLoaded) && (
+              <div className="absolute inset-[3px] rounded-full overflow-hidden">
+                <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-purple-600/40 via-cyan-500/40 to-transparent animate-waveRise" />
+                <svg className="absolute bottom-0 left-0 w-full h-24 animate-waveMove" preserveAspectRatio="none" viewBox="0 0 400 100">
+                  <path d="M0 50 Q 50 20 100 50 T 200 50 T 300 50 T 400 50 V100 H0 Z" fill="url(#waveGrad)" opacity="0.45" />
+                  <defs>
+                    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#06b6d4" />
+                      <stop offset="50%" stopColor="#8b5cf6" />
+                      <stop offset="100%" stopColor="#6366f1" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+            )}
+            <div className="relative z-10 text-white flex flex-col items-center">
+              <p className="text-[11px] tracking-wide uppercase text-cyan-200/80">Projected Rewards</p>
+              <p className="text-4xl font-bold leading-tight tabular-nums">
+                {(() => {
+                  const val = onChain?.projection ?? Number(estimatedMem);
+                  if (val < 0.01) return '<0.01';
+                  return val.toFixed(4);
+                })()}
+              </p>
+              <p className="text-sm font-medium text-cyan-300">MEM</p>
+              {!(timerDone && onChainLoaded) && (
+                <p className="mt-1 text-[10px] text-gray-400 animate-pulse">loading on-chain data…</p>
+              )}
+            </div>
+            {/* Tooltip breakdown */}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none absolute -bottom-3 left-1/2 -translate-x-1/2 translate-y-full w-64 p-3 rounded-xl bg-black/80 border border-white/10 text-left text-[11px] leading-relaxed z-20">
+              <p className="text-cyan-300 font-semibold mb-1">Projection Breakdown</p>
+              {onChain ? (
+                <>
+                  <p><span className="text-gray-400">Balance:</span> {onChain.balance?.toFixed(2) || '0.00'} MEM</p>
+                  <p><span className="text-gray-400">Avg Claim:</span> {onChain.avgClaim?.toFixed(2) || '0.00'} MEM</p>
+                  <p><span className="text-gray-400">Formula:</span> avgClaim * 1.1 + balance * 0.02</p>
+                </>
+              ) : (
+                <p className="text-gray-400">Waiting for on-chain balance & recent claim logs from Base network…</p>
+              )}
+              <p className="mt-2 text-[10px] text-gray-500">Experimental; not financial advice.</p>
             </div>
           </div>
         </div>
-        <p className="text-gray-400 text-sm mb-8">
-          Projected next reward tier in {Math.max(1, 5 - verifiedCount)} verified interactions.
-        </p>
+        {/* Reward tier heuristic */}
+        {(() => {
+          const TIERS = [
+            { name: 'Starter', min: 0, max: 2 },
+            { name: 'Builder', min: 3, max: 5 },
+            { name: 'Creator', min: 6, max: 9 },
+            { name: 'Influencer', min: 10, max: Infinity },
+          ];
+          const current = TIERS.find(t => verifiedCount >= t.min && verifiedCount <= t.max) || TIERS[0];
+          const currentIndex = TIERS.indexOf(current);
+          const next = TIERS[currentIndex + 1];
+          let remaining = null;
+          if (next) {
+            remaining = Math.max(0, next.min - verifiedCount);
+          }
+          return (
+            <p className="text-gray-400 text-sm mb-8">
+              Current tier: <span className="text-cyan-300 font-medium">{current.name}</span>
+              {next && remaining > 0 && (
+                <> • {remaining} more verified connection{remaining === 1 ? '' : 's'} to reach <span className="text-purple-300 font-medium">{next.name}</span></>
+              )}
+              {!next && ' • Max tier reached'}
+            </p>
+          );
+        })()}
         <div className="grid grid-cols-2 gap-3 text-left text-gray-300 mb-4">
           <div className="metric-card group">
             <div className="metric-card-overlay" />
@@ -112,7 +191,10 @@ export default function InsightsBoard({ identities, wallet }) {
           <div className="metric-card group">
             <div className="metric-card-overlay" />
             <p className="text-sm text-gray-400">Engagement Rank</p>
-            <p className="text-lg font-semibold text-white">Top 12%</p>
+            <p className="text-lg font-semibold text-white flex items-center gap-2">
+              <span>{engagement.label}</span>
+              <span className="text-[11px] text-cyan-300 tabular-nums">{engagement.percentileApprox <= 1 ? 'Top 1%' : `Top ${Math.max(2, engagement.percentileApprox)}%`}</span>
+            </p>
           </div>
           <div className="metric-card group">
             <div className="metric-card-overlay" />

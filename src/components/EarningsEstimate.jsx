@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
 
-export default function EarningsEstimate({ identities }) {
-  const estimatedMem = (identities.length * 2.5).toFixed(2);
+export default function EarningsEstimate({ identities = [] }) {
+  const safeCount = Array.isArray(identities) ? identities.length : 0;
+  const estimatedMem = (safeCount * 2.5).toFixed(2);
 
   return (
     <motion.div
@@ -21,7 +22,7 @@ export default function EarningsEstimate({ identities }) {
         <CountUp end={estimatedMem} duration={2.2} decimals={2} /> $MEM
       </p>
       <p className="text-sm text-gray-400 mt-2">
-        Based on {identities.length} linked identities
+        Based on {safeCount} linked identities
       </p>
     </motion.div>
   );

@@ -34,7 +34,7 @@ function selectPrimaryLabel(id) {
 export default function IdentityList({ identities }) {
   return (
     <div className="space-y-3">
-      {identities.map((id, index) => {
+  {identities.map((id, index) => {
   const Icon = platformIcons[id.platform] || platformIcons.default;
   const verified = id.sources?.some(s => s.verified);
   const { label: primaryLabel, isHandle } = selectPrimaryLabel(id);
@@ -44,9 +44,17 @@ export default function IdentityList({ identities }) {
         const formattedFollowers = typeof followers === 'number' ? followers.toLocaleString() : null;
         const profileUrl = id.url || (platformLine && (platformLine.startsWith('http') ? platformLine : (id.platform === 'lens' ? `https://hey.xyz/u/${id.username || id.handle}` : `https://${platformLine}`)));
 
+        // Build a stable composite key to avoid duplicates when multiple identities share same id/address.
+        const keyParts = [id.platform, id.id, id.address, id.username, id.handle, id.ens, id.domain].filter(Boolean);
+        let compositeKey = keyParts.join('|');
+        if (!compositeKey) compositeKey = `identity-${index}`;
+        // Append index only if another identical composite appears (cheap uniqueness guard)
+        // We can't track seen across renders easily here without state; simple suffix ensures React uniqueness.
+        compositeKey = compositeKey + `#${index}`;
+
         return (
           <motion.div
-            key={id.id || index}
+            key={compositeKey}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.04 }}
@@ -77,7 +85,7 @@ export default function IdentityList({ identities }) {
                         <span className="tabular-nums">{formattedFollowers}</span>
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-500">No follower data</span>
+                      <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white-500">No follower data</span>
                     )}
                     {profileUrl && (
                       <a

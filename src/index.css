@@ -73,3 +73,21 @@ input {
 .metric-card:hover { border-color: rgba(34,211,238,0.4); }
 .metric-card:hover > .metric-card-overlay { opacity: 1; }
 
+/* Wave animation keyframes for loading state */
+@keyframes waveMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes waveRise {
+  0% { transform: translateY(4%); }
+  50% { transform: translateY(0%); }
+  100% { transform: translateY(4%); }
+}
+
+.animate-waveMove {
+  animation: waveMove 6s linear infinite;
+}
+.animate-waveRise {
+  animation: waveRise 3.8s ease-in-out infinite;
+}
+

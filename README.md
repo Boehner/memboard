@@ -22,8 +22,25 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
+### WalletConnect Project ID (RainbowKit)
+
+This app now uses RainbowKit + wagmi for wallet connection. To enable WalletConnect compatible wallets you must supply a Project ID.
+
+1. Create a free WalletConnect Cloud account: https://www.walletconnect.com/
+2. Generate a Project ID.
+3. Create a `.env` file in the project root:
+
+```
+VITE_WALLETCONNECT_PROJECT_ID=YOUR_PROJECT_ID_HERE
+```
+
+4. Restart the dev server.
+
+If you do not set the variable, a placeholder `YOUR_PROJECT_ID` is used and WalletConnect based connections may fail.
+
 ## File Overview
 
 - `src/api/memory.js` – API handler for Memory Protocol
 - `src/components/` – modular React components
 - `src/App.jsx` – main UI logic
+- `src/main.jsx` – RainbowKit / wagmi / React Query provider setup

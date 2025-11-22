@@ -127,8 +127,8 @@ export default function InsightsBoard({ identities, wallet }) {
               <p className="text-4xl font-bold leading-tight tabular-nums">
                 {(() => {
                   const val = onChain?.projection ?? Number(estimatedMem);
-                  if (val < 0.01) return '<0.01';
-                  return val.toFixed(4);
+                  if (!Number.isFinite(val)) return '0.00';
+                  return val.toFixed(2);
                 })()}
               </p>
               <p className="text-sm font-medium text-cyan-300">MEM</p>

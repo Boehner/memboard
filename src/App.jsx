@@ -6,8 +6,10 @@ import ConnectButton from "./components/ConnectButton";
 import Footer from "./components/Footer";
 import InsightsBoard from "./components/InsightsBoard";
 import InfluenceScoreCard from "./components/InfluenceScoreCard";
-import { computeLegitimacyScore } from "./utils/computeLegitimacyScore";
+import { computeLegitimacyScore, explainLegitimacyScore } from "./utils/computeLegitimacyScore";
 import RecentClaims from "./components/RecentClaims";
+import ScoreDebugPanel from "./components/ScoreDebugPanel";
+import { gatherLegitimacyInputs } from "./api/scoreServices";
 
 export default function App() {
   const { address, isConnected } = useAccount();
@@ -17,6 +19,7 @@ export default function App() {
   const [onchainData, setOnchainData] = useState(null);
   const [legitimacyScore, setLegitimacyScore] = useState(0);
   const [rpcDegraded, setRpcDegraded] = useState(false);
+  const [scoreDebug, setScoreDebug] = useState(null);
 
   // Fetch Memory profile & rewards when wallet connects
   useEffect(() => {
@@ -41,8 +44,35 @@ export default function App() {
         if (!active) return;
         setOnchainData(rewards);
         if (rewards?.degraded) setRpcDegraded(true); else setRpcDegraded(false);
-        const score = computeLegitimacyScore({ identities: ids, profile: data, onchainData: rewards });
+        const inputs = await gatherLegitimacyInputs(address);
+        const options = {
+            thresholds: {
+              walletAgeDaysForFull: 365,
+              walletTxFull: 250,
+              memBalanceForFull: 15000,
+              platformSoftCap: 5,
+              platformHardCap: 10
+            },
+            stats: {
+              txCountQuantiles: { p50: 12, p75: 55, p90: 200 },
+              followerLogQuantiles: { p50: 1.5, p75: 3.2, p90: 5.0 }
+            },
+            weights: {
+              identity: 0.32,
+              wallet: 0.23,
+              social: 0.17,
+              ens: 0.09,
+              memory: 0.12,
+              external: 0.04,
+              overlap: 0.03
+            }
+          };
+        const score = computeLegitimacyScore(inputs, options);
+        const result = explainLegitimacyScore(inputs);
+
+        console.log('Computed legitimacy score:', score);
         setLegitimacyScore(score);
+        setScoreDebug({ ...result, address });
       } catch (err) {
         console.error('Fetch failed:', err);
       } finally {
@@ -91,7 +121,7 @@ export default function App() {
         <div className="w-full flex flex-col items-center">
           <div className="text-center mb-8">
             <h2 className="text-lg font-semibold text-cyan-300 break-all">
-              {address} Connections
+              Connections
             </h2>
             <p className="text-gray-400">
               {profile.total} linked identities • {profile.verified} verified
@@ -107,6 +137,11 @@ export default function App() {
         </div>
       )}
 
+      {/* {scoreDebug && (
+  <div className="mt-8">
+    <ScoreDebugPanel debug={scoreDebug} address={scoreDebug.address} />
+  </div>
+)} */}
 
       {isConnected && !loading && profile && identities.length === 0 && (
         <p className="text-gray-500 mt-10">No linked identities found.</p>

@@ -202,7 +202,7 @@ export default function ScoreDebugPanel({ debug, address }) {
           hint="Across linked social identities"
         />
         <MetaCard
-          label="MEM Balance"
+          label="$MEM Balance"
           value={
             breakdown.meta?.memBalance != null
               ? breakdown.meta.memBalance.toFixed
@@ -210,11 +210,11 @@ export default function ScoreDebugPanel({ debug, address }) {
                 : breakdown.meta.memBalance
               : "—"
           }
-          hint="On-chain MEM tokens detected"
+          hint="On-chain $MEM tokens detected"
         />
         <MetaCard
-          label="MEM Claims"
-          value={breakdown.meta?.claimsCount ?? "—"}
+          label="$MEM Claims"
+          value={breakdown.meta?.claimsCount ?? "-"}
           hint="RewardClaim events found"
         />
       </div>

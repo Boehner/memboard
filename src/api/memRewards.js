@@ -115,7 +115,7 @@ export async function resolveEnsWithSource(name) {
 }
 
 // ------------------------------
-// 1. MEM BALANCE (unchanged)
+// 1. $MEM BALANCE (unchanged)
 // ------------------------------
 export async function fetchMemBalance(address) {
   try {
@@ -128,7 +128,7 @@ export async function fetchMemBalance(address) {
     const net = await provider.getNetwork();
 
     if (net.chainId !== 8453n) {
-      console.warn("Not on Base network, skipping MEM balance");
+      console.warn("Not on Base network, skipping $MEM balance");
       return null;
     }
 
@@ -143,7 +143,7 @@ export async function fetchMemBalance(address) {
     return Number(ethers.formatUnits(raw, 18));
 
   } catch (e) {
-    console.warn("MEM balance fetch failed:", e);
+    console.warn("$MEM balance fetch failed:", e);
     return null;
   }
 }
@@ -256,7 +256,7 @@ export async function estimateUpcomingRewards(address) {
   // Simple projection model
   const projection =
     avgClaim * 1.1 + // Slight upward bias
-    (balance || 0) * 0.02; // Small multiplier for unclaimed MEM
+    (balance || 0) * 0.02; // Small multiplier for unclaimed $MEM
 
   return {
     balance,

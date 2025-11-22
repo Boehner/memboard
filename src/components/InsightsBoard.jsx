@@ -131,7 +131,7 @@ export default function InsightsBoard({ identities, wallet }) {
                   return val.toFixed(2);
                 })()}
               </p>
-              <p className="text-sm font-medium text-cyan-300">MEM</p>
+              <p className="text-sm font-medium text-cyan-300">$MEM</p>
               {!(timerDone && onChainLoaded) && (
                 <p className="mt-1 text-[10px] text-gray-400 animate-pulse">loading on-chain data…</p>
               )}
@@ -141,8 +141,8 @@ export default function InsightsBoard({ identities, wallet }) {
               <p className="text-cyan-300 font-semibold mb-1">Projection Breakdown</p>
               {onChain ? (
                 <>
-                  <p><span className="text-gray-400">Balance:</span> {onChain.balance?.toFixed(2) || '0.00'} MEM</p>
-                  <p><span className="text-gray-400">Avg Claim:</span> {onChain.avgClaim?.toFixed(2) || '0.00'} MEM</p>
+                  <p><span className="text-gray-400">Balance:</span> {onChain.balance?.toFixed(2) || '0.00'} $MEM</p>
+                  <p><span className="text-gray-400">Avg Claim:</span> {onChain.avgClaim?.toFixed(2) || '0.00'} $MEM</p>
                   <p><span className="text-gray-400">Formula:</span> avgClaim * 1.1 + balance * 0.02</p>
                 </>
               ) : (
@@ -202,14 +202,18 @@ export default function InsightsBoard({ identities, wallet }) {
             <p className="text-lg font-semibold text-white">{identities.length}</p>
           </div>
           {onChain && (
-            <div className="metric-card group col-span-2">
-              <div className="metric-card-overlay" />
-              <p className="text-sm text-gray-400">On-chain Balance / Claimed</p>
-              <p className="text-lg font-semibold text-white flex gap-4">
-                <span>{onChain.balance?.toFixed(2)} MEM</span>
-                <span className="text-gray-400 text-sm">claimed {onChain.claimedTotal.toFixed(2)} MEM</span>
-              </p>
-            </div>
+            <>
+              <div className="metric-card group">
+                <div className="metric-card-overlay" />
+                <p className="text-sm text-gray-400">On-chain Balance</p>
+                <p className="text-lg font-semibold text-white">{onChain.balance?.toFixed(2)} $MEM</p>
+              </div>
+              <div className="metric-card group">
+                <div className="metric-card-overlay" />
+                <p className="text-sm text-gray-400">Total Claimed</p>
+                <p className="text-lg font-semibold text-white">{onChain.claimedTotal.toFixed(2)} $MEM</p>
+              </div>
+            </>
           )}
         </div>
         {/* Platform influence breakdown */}

@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 
-export default function InfluenceScoreCard({ legitimacyScore = 82 }) {
+export default function InfluenceScoreCard({ legitimacyScore = 82, onInfoClick }) {
   const clamped = Math.max(0, Math.min(100, legitimacyScore));
 
   const tier = useMemo(() => {
@@ -18,14 +18,25 @@ export default function InfluenceScoreCard({ legitimacyScore = 82 }) {
   const offset = circumference - (clamped / 100) * circumference;
 
   return (
-  <div className="card-glow p-6 max-w-md mx-auto">
+  <div className="card-glow p-6 max-w-md mx-auto relative">
     <div className="card-glow-overlay" />
     <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-cyan-400/10 via-transparent to-purple-500/10" />
-      <header className="relative z-10 mb-4">
-        <h2 className="text-lg font-semibold text-white tracking-wide">Influence Legitimacy</h2>
-        <p className="text-xs text-gray-400 mt-1">Cross-protocol verification, overlap consistency & network quality.</p>
+      <header className="relative z-10 mb-2">
+        <div>
+          <h2 className="text-lg font-semibold text-white tracking-wide">Influence Legitimacy</h2>
+          <p className="text-xs text-gray-400 mt-1">Cross-protocol verification, overlap consistency & network quality.</p>
+        </div>
       </header>
-      <div className="relative flex items-center justify-center my-6">
+      <button
+        onClick={() => onInfoClick && onInfoClick()}
+        aria-label="Why my score"
+        title="Why my score"
+        className="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20 text-gray-200 z-20"
+      >
+        <span className="text-sm font-semibold">i</span>
+      </button>
+
+      <div className="relative flex items-center justify-center mt-2 mb-2">
         <div className="relative">
           <svg
             width={size}
@@ -63,9 +74,9 @@ export default function InfluenceScoreCard({ legitimacyScore = 82 }) {
             </defs>
           </svg>
           {/* Center content */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center -mt-4">
             <p className="text-sm text-cyan-300 font-medium tracking-wide">Score</p>
-            <p className="text-4xl font-bold text-white leading-none">{clamped}</p>
+            <p className="text-5xl font-bold text-white leading-none">{clamped}</p>
             <p className="text-xs text-gray-400">/100</p>
           </div>
         </div>

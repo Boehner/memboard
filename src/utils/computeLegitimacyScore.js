@@ -9,7 +9,10 @@ function clamp01(v) {
 // Helper: normalize a set of weights so they sum to 1
 function normalizeWeights(weights) {
   const entries = Object.entries(weights || {});
-  const sum = entries.reduce((s, [, v]) => s + (typeof v === "number" ? v : 0), 0);
+  const sum = entries.reduce(
+    (s, [, v]) => s + (typeof v === "number" ? v : 0),
+    0
+  );
   if (!sum) return weights;
   return Object.fromEntries(entries.map(([k, v]) => [k, v / sum]));
 }
@@ -43,26 +46,26 @@ function scaleByQuantiles(value, quantiles) {
 
 // Default weights across dimensions (sum to 1 after normalization)
 const DEFAULT_WEIGHTS = normalizeWeights({
-  identity: 0.30,
+  identity: 0.3,
   wallet: 0.25,
   social: 0.15,
-  ens: 0.10,
-  memory: 0.10,
+  ens: 0.1,
+  memory: 0.1,
   external: 0.05,
   overlap: 0.05,
 });
 
 // Thresholds for non-percentile scaling and sybil controls
 const DEFAULT_THRESHOLDS = {
-  walletAgeDaysForFull: 365,       // 1 year
-  walletTxFull: 200,               // solid history
-  ensAgeDaysForFull: 365,          // 1 year
+  walletAgeDaysForFull: 365, // 1 year
+  walletTxFull: 200, // solid history
+  ensAgeDaysForFull: 365, // 1 year (can override to 730 in options if you want 2y)
   ensRenewalsForFull: 3,
   claimsForFull: 10,
   memBalanceForFull: 10000,
-  followerLogMax: 6,               // log10(1,000,000)
-  platformSoftCap: 5,              // diminishing returns after this
-  platformHardCap: 10,             // absolute cap used in scaling
+  followerLogMax: 6, // log10(1,000,000)
+  platformSoftCap: 5, // diminishing returns after this
+  platformHardCap: 10, // absolute cap used in scaling
 };
 
 // Core implementation that returns both score and breakdown
@@ -72,10 +75,13 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
     profile = null,
     onchainData = null,
     ensData = null,
-    walletActivity = null,      // { ageDays, txCount, gasSpent }
-    followerQuality = null,     // { realFollowers, botFollowers }
-    externalReputation = null,  // 0–1
-    mutualOverlap = null,       // 0–1
+    bnsName = null,              // currently not used directly, but available
+    walletActivity = null,       // { ageDays, txCount, gasSpent }
+    followerQuality = null,      // { realFollowers, botFollowers }
+    externalReputation = null,   // 0–1
+    mutualOverlap = null,        // 0–1
+    identityTrust = null,        // 0–1
+    consistencyScore = null,     // 0–1
   } = inputs;
 
   const {
@@ -122,7 +128,7 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
   // sqrt to flatten above softCap
   const platformRichness = clamp01(Math.sqrt(cappedCount / softCap));
 
-  // Handle & avatar consistency (behavior-like but merged into identity)
+  // Legacy handle & avatar consistency (kept as fallback / secondary signal)
   const handleMap = new Map();
   const pfpMap = new Map();
   identities.forEach((i) => {
@@ -135,20 +141,61 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
   const multiHandle = [...handleMap.values()].filter((c) => c >= 2).length;
   const multiPfp = [...pfpMap.values()].filter((c) => c >= 2).length;
 
-  const handleConsistency =
+  const handleConsistencyLegacy =
     handleMap.size > 0 ? multiHandle / handleMap.size : 0;
-  const pfpConsistency = pfpMap.size > 0 ? multiPfp / pfpMap.size : 0;
-  const behaviorConsistency = (handleConsistency + pfpConsistency) / 2 || 0;
+  const pfpConsistencyLegacy =
+    pfpMap.size > 0 ? multiPfp / pfpMap.size : 0;
+  const behaviorConsistencyLegacy =
+    (handleConsistencyLegacy + pfpConsistencyLegacy) / 2 || 0;
 
-  // Identity normalized 0–1
-  const identityNorm = clamp01(
-    verificationRatio * 0.55 +
-      platformRichness * 0.25 +
-      behaviorConsistency * 0.20
-  );
+  // ENS + BNS age bonuses (for identity fairness)
+  let ensAgeBonus = 0;
+  if (ensData && typeof ensData.nameAgeDays === "number") {
+    // You can override ensAgeDaysForFull in options to 730 if you want 2y full credit
+    const fullDays = t.ensAgeDaysForFull || 365;
+    ensAgeBonus = clamp01(ensData.nameAgeDays / fullDays);
+  }
+
+  let basenameBonus = 0;
+  if (bnsName) {
+    basenameBonus = 0.10; // small identity boost
+  }
+
+  // NEW: use identityTrust + consistencyScore when available, plus ENS & BNS bonuses
+  let identityNorm;
+  if (typeof identityTrust === "number") {
+    const trustNorm = clamp01(identityTrust);
+    const consistencyNorm =
+      typeof consistencyScore === "number"
+        ? clamp01(consistencyScore)
+        : behaviorConsistencyLegacy;
+
+    // Fair weighting inside identity:
+    //  - identityTrust:   0.60
+    //  - consistency:     0.20
+    //  - platformRichness:0.10
+    //  - ENS age bonus:   0.08
+    //  - BNS name bonus:   0.02
+    identityNorm = clamp01(
+      trustNorm * 0.6 +
+        consistencyNorm * 0.2 +
+        platformRichness * 0.1 +
+        ensAgeBonus * 0.08 +
+        basenameBonus * 0.02
+    );
+  } else {
+    // Fallback to previous formulation + name bonuses
+    identityNorm = clamp01(
+      verificationRatio * 0.5 +
+        platformRichness * 0.2 +
+        behaviorConsistencyLegacy * 0.2 +
+        ensAgeBonus * 0.08 +
+        basenameBonus * 0.02
+    );
+  }
 
   // ---------------------------------------------------------------------------
-  // Wallet authenticity (age + tx count, with percentile support)
+  // Wallet authenticity (age + tx count + gas spent, with percentile support)
   // ---------------------------------------------------------------------------
   let ageNorm;
   if (walletActivity && typeof walletActivity.ageDays === "number") {
@@ -162,7 +209,9 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
   let txNorm;
   if (walletActivity && typeof walletActivity.txCount === "number") {
     const q = stats.txCountQuantiles;
-    const scaled = q ? scaleByQuantiles(walletActivity.txCount, q) : null;
+    const scaled = q
+      ? scaleByQuantiles(walletActivity.txCount, q)
+      : null;
     if (scaled === null) {
       txNorm = clamp01(walletActivity.txCount / (t.walletTxFull || 200));
     } else {
@@ -172,7 +221,25 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
     txNorm = 0.5;
   }
 
-  const walletNorm = clamp01(ageNorm * 0.6 + txNorm * 0.4);
+  // NEW: gas usage signal (helps distinguish real wallets from pure relayers)
+  let gasNorm = 0.5;
+  if (walletActivity && typeof walletActivity.gasSpent === "number") {
+    const gasEth = walletActivity.gasSpent;
+    if (gasEth > 0) {
+      const gasLog = Math.log10(gasEth + 1);
+      const q = stats.gasSpentQuantiles;
+      const scaled = q ? scaleByQuantiles(gasLog, q) : null;
+      if (scaled === null) {
+        gasNorm = clamp01(gasLog / 4); // up to ~1e4 ETH gas equivalent
+      } else {
+        gasNorm = scaled;
+      }
+    } else {
+      gasNorm = 0.3; // zero-gas wallets are slightly penalized
+    }
+  }
+
+  const walletNorm = clamp01(ageNorm * 0.4 + txNorm * 0.35 + gasNorm * 0.25);
 
   // ---------------------------------------------------------------------------
   // Social graph quality (followers + bot ratio)
@@ -212,10 +279,10 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
     followerQualityRatio = totalF > 0 ? realFollowers / totalF : 0.5;
   }
 
-  const socialNorm = clamp01(reachNorm * 0.7 + followerQualityRatio * 0.3);
+  const socialNorm = clamp01(reachNorm * 0.6 + followerQualityRatio * 0.4);
 
   // ---------------------------------------------------------------------------
-  // ENS intelligence
+  // ENS intelligence (kept as separate dimension)
   // ---------------------------------------------------------------------------
   let ensAgeNorm = 0.5;
   let ensRenewalNorm = 0.5;
@@ -247,12 +314,8 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
     claimsCount = (onchainData.claims || []).length;
     memBalance = Number(onchainData.balance || 0);
 
-    claimsNorm = clamp01(
-      claimsCount / (t.claimsForFull || 10)
-    );
-    balanceNorm = clamp01(
-      memBalance / (t.memBalanceForFull || 10000)
-    );
+    claimsNorm = clamp01(claimsCount / (t.claimsForFull || 10));
+    balanceNorm = clamp01(memBalance / (t.memBalanceForFull || 10000));
   }
 
   const memoryNorm = clamp01(claimsNorm * 0.6 + balanceNorm * 0.4);
@@ -310,6 +373,9 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
         avgFollowerLog,
         claimsCount,
         memBalance,
+        walletAgeDays: walletActivity?.ageDays,
+        ensAgeDays: ensData?.nameAgeDays,
+        hasBasename: bnsName ? true : false,
       },
     },
   };

@@ -7,9 +7,11 @@ import Footer from "./components/Footer";
 import InsightsBoard from "./components/InsightsBoard";
 import InfluenceScoreCard from "./components/InfluenceScoreCard";
 import { computeLegitimacyScore, explainLegitimacyScore } from "./utils/computeLegitimacyScore";
-import RecentClaims from "./components/RecentClaims";
 import ScoreDebugPanel from "./components/ScoreDebugPanel";
+import WhyMyScore from "./components/WhyMyScore";
 import { gatherLegitimacyInputs } from "./api/scoreServices";
+import BatchScoreComponent from "./components/BatchScoreComponent";
+import ScoreBox from "./components/ScoreBox";
 
 export default function App() {
   const { address, isConnected } = useAccount();
@@ -18,8 +20,21 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [onchainData, setOnchainData] = useState(null);
   const [legitimacyScore, setLegitimacyScore] = useState(0);
+  const [legitimacyBreakdown, setLegitimacyBreakdown] = useState(null);
   const [rpcDegraded, setRpcDegraded] = useState(false);
   const [scoreDebug, setScoreDebug] = useState(null);
+  const [whyExpanded, setWhyExpanded] = useState(false);
+
+  // Close WhyMyScore on ESC
+  useEffect(() => {
+    function handler(e) {
+      if (e.key === 'Escape') setWhyExpanded(false);
+    }
+    if (whyExpanded) {
+      window.addEventListener('keydown', handler);
+    }
+    return () => window.removeEventListener('keydown', handler);
+  }, [whyExpanded]);
 
   // Fetch Memory profile & rewards when wallet connects
   useEffect(() => {
@@ -44,7 +59,8 @@ export default function App() {
         if (!active) return;
         setOnchainData(rewards);
         if (rewards?.degraded) setRpcDegraded(true); else setRpcDegraded(false);
-        const inputs = await gatherLegitimacyInputs(address);
+        const inputs = await gatherLegitimacyInputs(address, data);
+        console.log('Legitimacy inputs:', inputs);
         const options = {
             thresholds: {
               walletAgeDaysForFull: 365,
@@ -68,10 +84,11 @@ export default function App() {
             }
           };
         const score = computeLegitimacyScore(inputs, options);
-        const result = explainLegitimacyScore(inputs);
+        const result = explainLegitimacyScore(inputs, options);
 
         console.log('Computed legitimacy score:', score);
         setLegitimacyScore(score);
+        setLegitimacyBreakdown(result.breakdown);
         setScoreDebug({ ...result, address });
       } catch (err) {
         console.error('Fetch failed:', err);
@@ -129,19 +146,34 @@ export default function App() {
           </div>
 
           <div className="mb-10">
-            <InfluenceScoreCard legitimacyScore={legitimacyScore} />
+            <InfluenceScoreCard legitimacyScore={legitimacyScore} onInfoClick={() => setWhyExpanded((v) => !v)} />
           </div>
 
           <InsightsBoard identities={identities} wallet={address} />
 
+          <WhyMyScore
+            breakdown={legitimacyBreakdown}
+            score={legitimacyScore}
+            expanded={whyExpanded}
+            onClose={() => setWhyExpanded(false)}
+          />
         </div>
       )}
 
       {/* {scoreDebug && (
-  <div className="mt-8">
-    <ScoreDebugPanel debug={scoreDebug} address={scoreDebug.address} />
-  </div>
-)} */}
+        <div className="mt-8 w-full flex flex-col items-center gap-6">
+          <div className="w-full max-w-xl">
+            <ScoreDebugPanel debug={scoreDebug} address={scoreDebug.address} />
+          </div>
+          <div className="w-full max-w-xl">
+            <ScoreBox title={`Score for ${scoreDebug.address || ''}`} score={scoreDebug.score} breakdown={scoreDebug.breakdown} />
+          </div>
+        </div>
+      )} */}
+
+      {/* <div className="w-full max-w-xl mt-8">
+        <BatchScoreComponent />
+      </div> */}
 
       {isConnected && !loading && profile && identities.length === 0 && (
         <p className="text-gray-500 mt-10">No linked identities found.</p>

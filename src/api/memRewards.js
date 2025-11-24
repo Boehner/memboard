@@ -1,7 +1,7 @@
 // api/memRewards.js (UPDATED FULL VERSION)
 
 import { ethers } from "ethers";
-import { fetchMemoryApiClaims } from "./memory";
+import { fetchMemoryApiClaims } from "./memory.js";
 
 // --- Config ---
 export const MEM_CONTRACT_ADDRESS = import.meta.env.VITE_MEM_CONTRACT;
@@ -124,23 +124,48 @@ export async function fetchMemBalance(address) {
     if (MEM_CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000")
       return null;
 
-    const provider = getProvider();
-    const net = await provider.getNetwork();
-
-    if (net.chainId !== 8453n) {
-      console.warn("Not on Base network, skipping $MEM balance");
-      return null;
-    }
-
     const resolved = await resolveAddressOrName(address);
     if (!resolved) {
       console.warn("Address/ENS not resolvable:", address);
       return null;
     }
 
-    const contract = getMemContract(provider);
-    const raw = await contract.balanceOf(resolved);
-    return Number(ethers.formatUnits(raw, 18));
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    let lastErr = null;
+
+    while (attempt < MAX_RETRIES) {
+      const provider = getProvider();
+      try {
+        const net = await provider.getNetwork();
+        if (net.chainId !== 8453n) {
+          console.warn("Not on Base network, skipping $MEM balance");
+          return null;
+        }
+
+        const contract = getMemContract(provider);
+        const raw = await contract.balanceOf(resolved);
+        return Number(ethers.formatUnits(raw, 18));
+      } catch (e) {
+        lastErr = e;
+        const msg = String(e.message || '').toLowerCase();
+        const isRecoverable = msg.includes('no backend') || msg.includes('healthy') || msg.includes('missing revert data') || msg.includes('call_exception') || msg.includes('call exception') || msg.includes('reverted');
+        console.warn(`$MEM balance call attempt ${attempt + 1} failed for ${resolved} (rpc=${selectRpc()}):`, e.message || e);
+        if (isRecoverable) {
+          rotateRpc();
+          attempt++;
+          // small backoff
+          await new Promise(r => setTimeout(r, 250 * attempt));
+          continue;
+        }
+        // Non-recoverable error - bail out
+        console.warn("$MEM balance fetch failed (non-recoverable):", e);
+        return null;
+      }
+    }
+
+    console.warn("$MEM balance fetch failed after retries:", lastErr);
+    return null;
 
   } catch (e) {
     console.warn("$MEM balance fetch failed:", e);

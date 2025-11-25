@@ -1,6 +1,3 @@
-// utils/computeLegitimacyScore.js
-
-// Helper: clamp value into [0, 1]
 function clamp01(v) {
   if (Number.isNaN(v)) return 0;
   return Math.max(0, Math.min(1, v));
@@ -365,19 +362,47 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
     breakdown: {
       ...dimBreakdown,
       meta: {
+        // Basic identity stats
         totalIdentities: identities.length,
         verifiedIdentities: verified,
         platforms: Array.from(platformsSet),
         platformCountRaw,
+
+        // Social reach
         avgFollowers,
         avgFollowerLog,
+
+        // MEM
         claimsCount,
         memBalance,
-        walletAgeDays: walletActivity?.ageDays,
-        ensAgeDays: ensData?.nameAgeDays,
-        hasBasename: bnsName ? true : false,
-      },
-    },
+
+        // Wallet signals
+        walletAgeDays: walletActivity?.ageDays ?? null,
+        walletTxCount: walletActivity?.txCount ?? null,
+        walletGasSpent: walletActivity?.gasSpent ?? null,
+
+        // ENS + Basenames
+        ensAgeDays: ensData?.nameAgeDays ?? null,
+        ensRenewalCount: ensData?.renewalCount ?? null,
+        hasBasename: !!bnsName,
+
+        // Follower quality
+        followerQuality: followerQuality?.ratio ?? null,
+        realFollowers: followerQuality?.realFollowers ?? null,
+        botFollowers: followerQuality?.botFollowers ?? null,
+
+        // Cross-platform overlap
+        overlapScore: typeof mutualOverlap === "number" ? mutualOverlap : null,
+
+        // Identity consistency
+        handleConsistency:
+          typeof consistencyScore === "number"
+            ? consistencyScore
+            : behaviorConsistencyLegacy,
+
+        pfpConsistency: pfpConsistencyLegacy,
+      }
+    }
   };
 }
 

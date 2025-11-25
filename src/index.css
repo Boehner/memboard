@@ -91,3 +91,47 @@ input {
   animation: waveRise 3.8s ease-in-out infinite;
 }
 
+@keyframes badgeFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes badgeGlowPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 6px rgba(255,255,255,0.15),
+      inset 0 0 6px rgba(255,255,255,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 10px rgba(255,255,255,0.25),
+      inset 0 0 10px rgba(255,255,255,0.15);
+  }
+}
+
+.badge-animate {
+  animation:
+    badgeFadeIn 0.5s ease-out forwards,
+    badgeGlowPulse 3.4s ease-in-out infinite;
+}
+
+
+/* Glow pulse when progress > 80% */
+@keyframes xpGlowPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(255,255,255,0.15),
+      0 0 20px rgba(255,255,255,0.10);
+  }
+  50% {
+    box-shadow:
+      0 0 14px rgba(255,255,255,0.25),
+      0 0 30px rgba(255,255,255,0.20);
+  }
+}

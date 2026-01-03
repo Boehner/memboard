@@ -17,7 +17,7 @@ const NEGATIVE_CACHE_TTL_MS = 2 * 60 * 1000;
 export async function gatherLegitimacyInputs(walletOrEns, profile) {
   const isEnsInput = walletOrEns?.endsWith?.(".eth");
   const isAddressInput = /^0x[a-fA-F0-9]{40}$/.test(walletOrEns || "");
-  const identities = profile.identities || [];
+  const identities = (profile && profile.identities) || [];
 
   // ---------------------------------------------
   // 1. Identify ENS and Basenames separately

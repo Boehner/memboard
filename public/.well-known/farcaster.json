@@ -1,0 +1,38 @@
+{
+    "frame": {
+        "name": "MemBoard",
+        "version": "1",
+        "iconUrl": "https://memboard.xyz/icon.png",
+        "homeUrl": "https://memboard.xyz",
+        "imageUrl": "https://memboard.xyz/screenshots/overview.png",
+        "splashImageUrl": "https://memboard.xyz/splash.png",
+        "splashBackgroundColor": "#0B0E14",
+        "webhookUrl": "https://memboard.xyz/api/webhook",
+        "primaryCategory": "developer-tools",
+        "description": "MemBoard provides transparent legitimacy and reputation scoring for wallets creators and builders on Base using identity signals wallet history and onchain activity",
+        "subtitle": "Onchain reputation scoring",
+        "screenshotUrls": [
+            "https://memboard.xyz/screenshots/overview.png",
+            "https://memboard.xyz/screenshots/legitimacy.png",
+            "https://memboard.xyz/screenshots/identities.png"
+        ],
+        "heroImageUrl": "https://memboard.xyz/og.png",
+        "tagline": "Trust, explained onchain",
+        "ogImageUrl": "https://memboard.xyz/og.png",
+        "ogTitle": "MemBoard Onchain Trust",
+        "ogDescription": "Transparent onchain legitimacy and reputation scoring for wallets creators and builders on Base",
+        "noindex": false,
+        "tags": [
+            "base",
+            "identity",
+            "reputation",
+            "onchain",
+            "social"
+        ]
+    },
+    "accountAssociation": {
+        "header": "eyJmaWQiOjEzMTk4MjYsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg4RjE1MTNhMTM1NEQxMTU3OTFGQ2YyNjEwREQyNjhkMzk5MjFDMTNDIn0",
+        "payload": "eyJkb21haW4iOiJtZW1ib2FyZC54eXoifQ",
+        "signature": "fmE2LcqowFdswaYrBCA5h5STWvTmfkcRYEvNSsXwz8lgszA0zyeoQIPE38QGGVJNcy3JD5KTSUYcDQMq5LQe7Rw="
+    }
+}

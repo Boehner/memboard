@@ -51,3 +51,31 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </WagmiProvider>
   </React.StrictMode>
 );
+
+// Notify Farcaster frame/miniapp host that the app is ready to hide the splash.
+// Try local package first, then fallback to CDN.
+async function notifyFarcasterReady() {
+  try {
+    let sdk;
+    try {
+      sdk = await import('@farcaster/miniapp-sdk');
+    } catch (err) {
+      // fallback to CDN
+      sdk = await import('https://esm.sh/@farcaster/miniapp-sdk');
+    }
+
+    // Allow the app a moment to finish rendering
+    setTimeout(() => {
+      try {
+        sdk?.sdk?.actions?.ready?.();
+        console.log('[MemBoard] Farcaster miniapp sdk.actions.ready() called');
+      } catch (e) {
+        console.warn('[MemBoard] Unable to call sdk.actions.ready()', e);
+      }
+    }, 300);
+  } catch (err) {
+    console.warn('[MemBoard] Farcaster SDK not available:', err);
+  }
+}
+
+notifyFarcasterReady();

@@ -1,45 +1,12 @@
 import { ethers } from "ethers";
 
+// Track in-flight requests to dedupe concurrent calls for the same wallet/ENS.
+const _inFlight = new Map();
+
 export async function getMemoryProfile(walletOrENS) {
-  const API_URL = `https://api.memoryproto.co/identities/wallet/${walletOrENS}`;
-  const API_KEY = import.meta.env.VITE_MEMORY_API_KEY;
+  console.log("getMemoryProfile called for:", walletOrENS);
 
-  try {
-    const response = await fetch(API_URL, {
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const raw = await response.json();
-    console.log("Fetched Memory Identity:", raw);
-
-    // --- Normalize data ---
-    const identities =
-      Array.isArray(raw)
-        ? raw
-        : raw.identities ||
-          raw.connections ||
-          raw.linked ||
-          raw.results ||
-          raw.identity ||
-          [];
-
-    return {
-      wallet: walletOrENS,
-      identities,
-      total: identities.length,
-      verified: identities.filter((i) =>
-        i.sources?.some((s) => s.verified)
-      ).length,
-    };
-  } catch (err) {
-    console.error("Error fetching Memory identity:", err);
+  if (!walletOrENS) {
     return {
       wallet: walletOrENS,
       identities: [],
@@ -47,6 +14,68 @@ export async function getMemoryProfile(walletOrENS) {
       verified: 0,
     };
   }
+
+  const key = String(walletOrENS).toLowerCase();
+  if (_inFlight.has(key)) return _inFlight.get(key);
+
+  const p = (async () => {
+    // Validate input: only allow ENS names or 0x addresses to avoid upstream 422 errors
+    const addrRe = /^0x[a-fA-F0-9]{40}$/;
+    const ensRe = /^[^\s@\/]+\.eth$/i;
+
+    if (!walletOrENS || !(addrRe.test(walletOrENS) || ensRe.test(walletOrENS))) {
+      return {
+        wallet: walletOrENS,
+        identities: [],
+        total: 0,
+        verified: 0,
+      };
+    }
+
+    const API_URL = `https://api.memoryproto.co/identities/wallet/${walletOrENS}`;
+    const API_KEY = import.meta.env.VITE_MEMORY_API_KEY;
+
+    try {
+      const response = await fetch(API_URL, {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const raw = await response.json();
+      console.log("Fetched Memory Identity:", raw);
+
+      // --- Normalize data ---
+      const identities =
+        Array.isArray(raw)
+          ? raw
+          : raw.identities || raw.connections || raw.linked || raw.results || raw.identity || [];
+
+      return {
+        wallet: walletOrENS,
+        identities,
+        total: identities.length,
+        verified: identities.filter((i) => i.sources?.some((s) => s.verified)).length,
+      };
+    } catch (err) {
+      console.error("Error fetching Memory identity:", err);
+      return {
+        wallet: walletOrENS,
+        identities: [],
+        total: 0,
+        verified: 0,
+      };
+    }
+  })();
+
+  _inFlight.set(key, p);
+  p.finally(() => _inFlight.delete(key));
+  return p;
 }
 
 // Memory Protocol reward claims (API)

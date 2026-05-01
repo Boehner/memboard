@@ -1,8 +1,10 @@
 // api/identityAggregator.js
 // Builds the identities[] profile from working free sources:
-//   - Farcaster via Neynar (if VITE_NEYNAR_API_KEY set) or hub.pinata.cloud fallback
+//   - Farcaster + Twitter/X + GitHub via Neynar (VITE_NEYNAR_API_KEY)
+//     or Farcaster-only via hub.pinata.cloud fallback (no key)
+//   - Lens Protocol (free GraphQL, no key)
 //   - ENS reverse lookup
-//   - Basenames (Base chain ENS resolver)
+//   - Basenames (.base.eth via Base chain)
 
 import { ethers } from "ethers";
 import { getEthereumProvider } from "./provider.js";
@@ -22,7 +24,6 @@ export function invalidateAggregatorCache(key = null) {
 export async function buildIdentityProfile(walletOrENS) {
   if (!walletOrENS) return emptyProfile(walletOrENS);
 
-  // Resolve ENS input to address
   let address = walletOrENS;
   if (typeof walletOrENS === "string" && walletOrENS.endsWith(".eth")) {
     try {
@@ -39,13 +40,14 @@ export async function buildIdentityProfile(walletOrENS) {
   if (cached && Date.now() - cached.ts < TTL_MS) return cached.data;
 
   const results = await Promise.allSettled([
-    fetchFarcasterIdentity(address),
+    fetchFarcasterAndSocials(address),  // may return array [farcaster, twitter, github]
+    fetchLensIdentity(address),
     fetchEnsIdentity(address),
     fetchBasenameIdentity(address),
   ]);
 
   const identities = results
-    .flatMap((r) => (r.status === "fulfilled" && r.value ? [r.value] : []))
+    .flatMap((r) => (r.status === "fulfilled" && r.value ? [r.value].flat() : []))
     .filter(Boolean);
 
   const profile = {
@@ -64,17 +66,19 @@ function emptyProfile(wallet) {
 }
 
 // ---------------------------------------------------------------------------
-// Farcaster
+// Farcaster + Twitter/X + GitHub (all via Neynar's verified_accounts)
 // ---------------------------------------------------------------------------
-async function fetchFarcasterIdentity(address) {
+async function fetchFarcasterAndSocials(address) {
   if (NEYNAR_API_KEY) {
-    const result = await fetchFarcasterViaNeynar(address);
-    if (result) return result;
+    const results = await fetchViaNeynar(address);
+    if (results?.length) return results;
   }
-  return fetchFarcasterViaHub(address);
+  // Fallback: Farcaster only via public hub (no key, no follower count)
+  const fc = await fetchFarcasterViaHub(address);
+  return fc ? [fc] : [];
 }
 
-async function fetchFarcasterViaNeynar(address) {
+async function fetchViaNeynar(address) {
   try {
     const url = `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${encodeURIComponent(address)}`;
     const res = await fetch(url, {
@@ -84,8 +88,12 @@ async function fetchFarcasterViaNeynar(address) {
     const data = await res.json();
     const users = data?.[address.toLowerCase()] || data?.[address] || [];
     if (!users.length) return null;
+
     const u = users[0];
-    return {
+    const identities = [];
+
+    // Farcaster
+    identities.push({
       platform: "farcaster",
       username: u.username,
       id: String(u.fid),
@@ -97,7 +105,35 @@ async function fetchFarcasterViaNeynar(address) {
       },
       url: `https://warpcast.com/${u.username}`,
       verified: true,
-    };
+    });
+
+    // Twitter/X and GitHub come from verified_accounts if user linked them in Warpcast
+    for (const acct of u.verified_accounts || []) {
+      const platform = (acct.platform || "").toLowerCase();
+      if (platform === "x" || platform === "twitter") {
+        identities.push({
+          platform: "twitter",
+          username: acct.username,
+          id: acct.username,
+          displayName: acct.username,
+          social: {},
+          url: `https://x.com/${acct.username}`,
+          verified: true,
+        });
+      } else if (platform === "github") {
+        identities.push({
+          platform: "github",
+          username: acct.username,
+          id: acct.username,
+          displayName: acct.username,
+          social: {},
+          url: `https://github.com/${acct.username}`,
+          verified: true,
+        });
+      }
+    }
+
+    return identities;
   } catch {
     return null;
   }
@@ -112,9 +148,7 @@ async function fetchFarcasterViaHub(address) {
     if (!res.ok) return null;
     const data = await res.json();
 
-    let username = null;
-    let displayName = null;
-    let pfpUrl = null;
+    let username = null, displayName = null, pfpUrl = null;
     (data?.messages || []).forEach((msg) => {
       const ud = msg?.data?.userDataBody;
       if (!ud) return;
@@ -129,9 +163,60 @@ async function fetchFarcasterViaHub(address) {
       id: String(fid),
       displayName: displayName || username,
       avatar: pfpUrl,
-      // Follower count unavailable without Neynar; neutral for scoring
       social: { followers: 0, following: 0 },
       url: username ? `https://warpcast.com/${username}` : null,
+      verified: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lens Protocol (free GraphQL, no API key needed)
+// ---------------------------------------------------------------------------
+const LENS_API = "https://api.lens.xyz/graphql";
+const LENS_QUERY = `
+  query DefaultProfile($address: EthereumAddress!) {
+    defaultProfile(request: { for: $address }) {
+      id
+      handle { fullHandle localName }
+      stats { followers following posts }
+      metadata {
+        displayName
+        picture { ... on ImageSet { optimized { uri } } }
+      }
+    }
+  }
+`;
+
+async function fetchLensIdentity(address) {
+  try {
+    const res = await fetch(LENS_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: LENS_QUERY, variables: { address } }),
+    });
+    if (!res.ok) return null;
+    const { data } = await res.json();
+    const profile = data?.defaultProfile;
+    if (!profile) return null;
+
+    const handle = profile.handle?.fullHandle || profile.handle?.localName || profile.id;
+    const stats = profile.stats || {};
+
+    return {
+      platform: "lens",
+      username: handle,
+      id: profile.id,
+      displayName: profile.metadata?.displayName || handle,
+      avatar: profile.metadata?.picture?.optimized?.uri || null,
+      social: {
+        followers: stats.followers || 0,
+        following: stats.following || 0,
+        posts: stats.posts || 0,
+      },
+      url: `https://hey.xyz/u/${handle}`,
       verified: true,
     };
   } catch {

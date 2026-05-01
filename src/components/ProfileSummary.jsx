@@ -1,6 +1,8 @@
 import React from "react";
 import { FaEthereum, FaGithub, FaTwitter, FaGlobe, FaUserCircle } from "react-icons/fa";
-import { SiLens, SiSolana, SiFarcaster, SiZora, SiMaildotru } from "react-icons/si";
+import { SiLens, SiSolana, SiFarcaster, SiMaildotru } from "react-icons/si";
+import ProofCreator from './ProofCreator';
+import ProofsPanel from './ProofsPanel';
 
 const platformIcons = {
   ethereum: <FaEthereum className="text-purple-400" />,
@@ -9,16 +11,17 @@ const platformIcons = {
   twitter: <FaTwitter className="text-sky-400" />,
   farcaster: <SiFarcaster className="text-indigo-400" />,
   lens: <SiLens className="text-lime-400" />,
-  zora: <SiZora className="text-pink-400" />,
+  zora: <FaGlobe className="text-pink-400" />,
   email: <SiMaildotru className="text-yellow-300" />,
   website: <FaGlobe className="text-blue-300" />,
   "talent-protocol": <FaUserCircle className="text-amber-300" />,
   factory: <FaGlobe className="text-blue-500" />,
   ens: <FaEthereum className="text-violet-300" />,
+  basenames: <FaEthereum className="text-blue-400" />,
   default: <FaUserCircle className="text-gray-500" />
 };
 
-export default function ProfileSummary({ profile }) {
+export default function ProfileSummary({ profile, inputs }) {
   // profile is either an array or { identities: [] }
   const identities = Array.isArray(profile) ? profile : profile.identities || [];
 
@@ -62,6 +65,12 @@ export default function ProfileSummary({ profile }) {
           );
         })}
       </div>
+        <div className="mt-4">
+          <ProofCreator inputs={inputs} />
+        </div>
+        <div className="mt-4">
+          <ProofsPanel />
+        </div>
     </div>
   );
 }

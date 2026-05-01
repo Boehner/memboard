@@ -4,4 +4,9 @@
   publish = "dist"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "VITE_MEMORY_API_KEY,VITE_MEM_CONTRACT,VITE_PUBLIC_RPC,VITE_WALLETCONNECT_PROJECT_ID"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_MEMORY_API_KEY,VITE_MEM_CONTRACT,VITE_PUBLIC_RPC,VITE_WALLETCONNECT_PROJECT_ID,VITE_NEYNAR_API_KEY"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: wss:; base-uri 'self'; frame-ancestors 'self'"

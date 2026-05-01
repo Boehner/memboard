@@ -8,7 +8,6 @@
 
 import { ethers } from "ethers";
 import { getEthereumProvider } from "./provider.js";
-import { getFidFromAddress } from "./farcaster.js";
 
 const ENV = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
 const NEYNAR_API_KEY = ENV.VITE_NEYNAR_API_KEY || "";
@@ -69,13 +68,9 @@ function emptyProfile(wallet) {
 // Farcaster + Twitter/X + GitHub (all via Neynar's verified_accounts)
 // ---------------------------------------------------------------------------
 async function fetchFarcasterAndSocials(address) {
-  if (NEYNAR_API_KEY) {
-    const results = await fetchViaNeynar(address);
-    if (results?.length) return results;
-  }
-  // Fallback: Farcaster only via public hub (no key, no follower count)
-  const fc = await fetchFarcasterViaHub(address);
-  return fc ? [fc] : [];
+  if (!NEYNAR_API_KEY) return [];
+  const results = await fetchViaNeynar(address);
+  return results || [];
 }
 
 async function fetchViaNeynar(address) {
@@ -134,39 +129,6 @@ async function fetchViaNeynar(address) {
     }
 
     return identities;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchFarcasterViaHub(address) {
-  try {
-    const fid = await getFidFromAddress(address);
-    if (!fid) return null;
-
-    const res = await fetch(`https://hub.pinata.cloud/v1/userDataByFid?fid=${fid}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    let username = null, displayName = null, pfpUrl = null;
-    (data?.messages || []).forEach((msg) => {
-      const ud = msg?.data?.userDataBody;
-      if (!ud) return;
-      if (ud.type === "USER_DATA_TYPE_USERNAME") username = ud.value;
-      else if (ud.type === "USER_DATA_TYPE_DISPLAY") displayName = ud.value;
-      else if (ud.type === "USER_DATA_TYPE_PFP") pfpUrl = ud.value;
-    });
-
-    return {
-      platform: "farcaster",
-      username: username || `fid:${fid}`,
-      id: String(fid),
-      displayName: displayName || username,
-      avatar: pfpUrl,
-      social: { followers: 0, following: 0 },
-      url: username ? `https://warpcast.com/${username}` : null,
-      verified: true,
-    };
   } catch {
     return null;
   }

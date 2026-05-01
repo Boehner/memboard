@@ -47,7 +47,6 @@ const DEFAULT_WEIGHTS = normalizeWeights({
   wallet: 0.25,
   social: 0.15,
   ens: 0.1,
-  memory: 0.1,
   external: 0.05,
   overlap: 0.05,
 });
@@ -58,8 +57,6 @@ const DEFAULT_THRESHOLDS = {
   walletTxFull: 200, // solid history
   ensAgeDaysForFull: 365, // 1 year (can override to 730 in options if you want 2y)
   ensRenewalsForFull: 3,
-  claimsForFull: 10,
-  memBalanceForFull: 10000,
   followerLogMax: 6, // log10(1,000,000)
   platformSoftCap: 5, // diminishing returns after this
   platformHardCap: 10, // absolute cap used in scaling
@@ -89,24 +86,8 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
 
   const weights = normalizeWeights({ ...DEFAULT_WEIGHTS, ...rawWeights });
 
-  if (!identities.length || !profile) {
-    return {
-      score: 0,
-      breakdown: {
-        identity: { normalized: 0, weighted: 0 },
-        wallet: { normalized: 0, weighted: 0 },
-        social: { normalized: 0, weighted: 0 },
-        ens: { normalized: 0, weighted: 0 },
-        memory: { normalized: 0, weighted: 0 },
-        external: { normalized: 0, weighted: 0 },
-        overlap: { normalized: 0, weighted: 0 },
-        meta: { reason: "no-identities-or-profile" },
-      },
-    };
-  }
-
-  const total = profile.total || identities.length;
-  const verified = profile.verified || 0;
+  const total = profile ? (profile.total || identities.length) : identities.length;
+  const verified = profile ? (profile.verified || 0) : 0;
 
   // ---------------------------------------------------------------------------
   // Identity signals
@@ -300,24 +281,6 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
   const ensNorm = clamp01(ensAgeNorm * 0.7 + ensRenewalNorm * 0.3);
 
   // ---------------------------------------------------------------------------
-  // Memory protocol activity
-  // ---------------------------------------------------------------------------
-  let claimsNorm = 0.5;
-  let balanceNorm = 0.5;
-  let claimsCount = 0;
-  let memBalance = 0;
-
-  if (onchainData) {
-    claimsCount = (onchainData.claims || []).length;
-    memBalance = Number(onchainData.balance || 0);
-
-    claimsNorm = clamp01(claimsCount / (t.claimsForFull || 10));
-    balanceNorm = clamp01(memBalance / (t.memBalanceForFull || 10000));
-  }
-
-  const memoryNorm = clamp01(claimsNorm * 0.6 + balanceNorm * 0.4);
-
-  // ---------------------------------------------------------------------------
   // External reputation (0–1) and mutual overlap (0–1)
   // ---------------------------------------------------------------------------
   const externalNorm =
@@ -336,7 +299,6 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
     wallet: walletNorm,
     social: socialNorm,
     ens: ensNorm,
-    memory: memoryNorm,
     external: externalNorm,
     overlap: overlapNorm,
   };
@@ -371,10 +333,6 @@ function _computeLegitimacyScoreWithBreakdown(inputs = {}, options = {}) {
         // Social reach
         avgFollowers,
         avgFollowerLog,
-
-        // MEM
-        claimsCount,
-        memBalance,
 
         // Wallet signals
         walletAgeDays: walletActivity?.ageDays ?? null,

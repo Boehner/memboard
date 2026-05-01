@@ -9,11 +9,16 @@ import Footer from "./components/Footer";
 import InsightsBoard from "./components/InsightsBoard";
 import InfluenceScoreCard from "./components/InfluenceScoreCard";
 import WhyMyScore from "./components/WhyMyScore";
+import GraphSummary from "./components/GraphSummary";
 import RecommendedMatches from "./components/RecommendedMatches";
+import ProofCreator from "./components/ProofCreator";
+import ProofsPanel from "./components/ProofsPanel";
+import RecentClaims from "./components/RecentClaims";
 import {
   computeLegitimacyScore,
   explainLegitimacyScore,
 } from "./utils/computeLegitimacyScore";
+import Feed from "./pages/Feed";
 
 export default function App() {
   const { address, isConnected } = useAccount();
@@ -22,9 +27,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [legitimacyScore, setLegitimacyScore] = useState(0);
   const [legitimacyBreakdown, setLegitimacyBreakdown] = useState(null);
+  const [legitimacyInputs, setLegitimacyInputs] = useState(null);
   const [rpcDegraded, setRpcDegraded] = useState(false);
   const [whyExpanded, setWhyExpanded] = useState(false);
-
+  const [page, setPage] = useState("dashboard"); // 'dashboard' | 'feed'
+  const ENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+  const ENABLE_FEED_NAV = (typeof ENV !== 'undefined' && ENV.VITE_ENABLE_FEED_NAV);
+  const ENABLE_PROOFS = (typeof ENV !== 'undefined' && ENV.VITE_ENABLE_PROOFS_PANEL === 'true');
+console.log("FEED NAV ENABLED:", ENV.VITE_ENABLE_FEED_NAV);
   // Close WhyMyScore on ESC
   useEffect(() => {
     function handler(e) {
@@ -60,12 +70,13 @@ export default function App() {
         setRpcDegraded(!!rewards?.degraded);
 
         const inputs = await gatherLegitimacyInputs(address, data);
+        if (!active) return;
+        setLegitimacyInputs(inputs);
 
         const options = {
           thresholds: {
             walletAgeDaysForFull: 365,
             walletTxFull: 250,
-            memBalanceForFull: 15000,
             platformSoftCap: 5,
             platformHardCap: 10,
           },
@@ -74,13 +85,12 @@ export default function App() {
             followerLogQuantiles: { p50: 1.5, p75: 3.2, p90: 5.0 },
           },
           weights: {
-            identity: 0.32,
-            wallet: 0.23,
+            identity: 0.35,
+            wallet: 0.28,
             social: 0.17,
-            ens: 0.09,
-            memory: 0.12,
-            external: 0.04,
-            overlap: 0.03,
+            ens: 0.11,
+            external: 0.05,
+            overlap: 0.04,
           },
         };
 
@@ -120,8 +130,17 @@ export default function App() {
             className="block h-12 w-12"
           />
         </button>
-
-        <ConnectButton />
+        <div className="flex items-center gap-3">
+          {isConnected && ENABLE_FEED_NAV && (
+            <button
+              onClick={() => setPage(page === 'feed' ? 'dashboard' : 'feed')}
+              className="text-xs px-3 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white border border-white/10"
+            >
+              {page === 'feed' ? 'Back to Dashboard' : 'Open Feed'}
+            </button>
+          )}
+          <ConnectButton />
+        </div>
       </header>
 
       {!isConnected && (
@@ -159,17 +178,19 @@ export default function App() {
       {/* ===================== */}
       {/* 🔹 MAIN CONTENT */}
       {/* ===================== */}
-      {isConnected && profile && identities.length > 0 && (
+      {page === 'dashboard' && isConnected && !loading && legitimacyInputs && (
         <div className="w-full flex flex-col items-center">
 
-          <div className="text-center mb-8">
-            <h2 className="text-lg font-semibold text-cyan-300">
-              Connections
-            </h2>
-            <p className="text-gray-400">
-              {profile.total} linked identities • {profile.verified} verified
-            </p>
-          </div>
+          {identities.length > 0 && (
+            <div className="text-center mb-8">
+              <h2 className="text-lg font-semibold text-cyan-300">
+                Connections
+              </h2>
+              <p className="text-gray-400">
+                {profile.total} linked identities • {profile.verified} verified
+              </p>
+            </div>
+          )}
 
           <div className="mb-10">
             <InfluenceScoreCard
@@ -179,6 +200,25 @@ export default function App() {
           </div>
 
           <InsightsBoard identities={identities} wallet={address} />
+
+          <GraphSummary inputs={legitimacyInputs} />
+
+          {ENABLE_PROOFS && (
+            <div className="w-full max-w-xl mt-8">
+              <div className="card-glow p-6 rounded-2xl border border-white/10 bg-white/5 shadow-xl">
+                <ProofCreator inputs={legitimacyInputs} embedded />
+                <div className="mt-6">
+                  <ProofsPanel embedded />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {legitimacyInputs?.onchainData?.claims?.length > 0 && (
+            <div className="w-full max-w-xl mt-8">
+              <RecentClaims claims={legitimacyInputs.onchainData.claims} />
+            </div>
+          )}
 
           {/* <div className="w-full max-w-xl mt-12">
             <h2 className="text-xl font-semibold text-purple-300 mb-3 text-center">
@@ -200,6 +240,12 @@ export default function App() {
             expanded={whyExpanded}
             onClose={() => setWhyExpanded(false)}
           />
+        </div>
+      )}
+
+      {page === 'feed' && isConnected && (
+        <div className="w-full max-w-4xl mx-auto">
+          <Feed wallet={address} userProfile={profile} />
         </div>
       )}
 

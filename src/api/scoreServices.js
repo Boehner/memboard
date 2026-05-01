@@ -1,12 +1,17 @@
 // api/scoreServices.js
-import { fetchMemBalance, fetchAllMemClaims } from "./memRewards.js";
+import { fetchMemBalance } from "./memRewards.js";
 import { fetchWalletAge } from "./walletAge.js";
 import { fetchWalletActivity } from "./walletActivity.js";
+import { fetchWalletHistory } from "./walletHistory.js";
 import { fetchEnsMetadata } from "./ens.js";
 import { getEthereumProvider, rotateEthereumProvider } from "./provider.js";
 import { computeFollowerQuality } from "./followerQuality.js";
+import { fetchWalletLinks } from "./walletLinks.js";
 import { computeIdentityConsistency } from "./identityConsistency.js";
 import { computeSocialOverlap } from "./socialOverlap.js";
+import { fetchSocialGraph } from "./socialGraph.js";
+import { buildSuggestions } from "./suggestions.js";
+import vault from "./vault.js";
 
 // ENS reverse lookup caching
 const ensCache = new Map();
@@ -95,17 +100,16 @@ export async function gatherLegitimacyInputs(walletOrEns, profile) {
     memBalance = null;
   }
 
-  const claims = await fetchAllMemClaims(walletOrEns);
-
   const onchainData = {
     balance: memBalance || 0,
-    claims,
-    avgClaim: claims.reduce((a, c) => a + c.amount, 0) / Math.max(claims.length, 1),
+    claims: [],
+    avgClaim: 0,
   };
   // 4. Wallet activity
   // ---------------------------------------------
   const walletAge = await fetchWalletAge(walletOrEns);
   const activity = await fetchWalletActivity(walletOrEns);
+  const walletHistory = await fetchWalletHistory(walletOrEns);
 
   // ---------------------------------------------
   // 5. ENS metadata (Basenames have no API)
@@ -119,24 +123,64 @@ export async function gatherLegitimacyInputs(walletOrEns, profile) {
   const followerQuality = computeFollowerQuality(identities);
   const overlap = computeSocialOverlap(identities);
 
+  // Social graph summary (platform presences, follower buckets, suggestions)
+  let socialGraph = null;
+  try {
+    socialGraph = await fetchSocialGraph(identities || []);
+  } catch (err) {
+    console.warn('gatherLegitimacyInputs: fetchSocialGraph error', err && err.message ? err.message : err);
+    socialGraph = null;
+  }
+
   // ---------------------------------------------
-  // 7. Return all scoring inputs
+  // 7. Wallet links (soft links from Memory identities)
   // ---------------------------------------------
+  let walletGraph = null;
+  try {
+    walletGraph = await fetchWalletLinks(walletOrEns);
+  } catch (err) {
+    console.warn('gatherLegitimacyInputs: fetchWalletLinks error', err && err.message ? err.message : err);
+    walletGraph = null;
+  }
+
+  // ---------------------------------------------
+  // 8. Return all scoring inputs (include walletGraph)
+  // ---------------------------------------------
+  let suggestions = null;
+  try {
+    suggestions = buildSuggestions({ identities, walletGraph, walletHistory, scores: null });
+  } catch (err) {
+    console.warn('gatherLegitimacyInputs: buildSuggestions error', err && err.message ? err.message : err);
+    suggestions = null;
+  }
   return {
     identities,
     profile,
     onchainData,
+    // Top-level aliases for schema alignment
+    walletAge: walletAge?.ageDays || 0,
     walletActivity: {
       ageDays: walletAge?.ageDays || 0,
       txCount: activity.txCount,
       gasSpent: activity.gasSpent,
+      // historySummary: API-derived summary (recent counts, top contracts, cadence)
+      historySummary: walletHistory || null,
     },
+    // Convenience alias matching proposed schema (optional)
+    walletHistorySummary: walletHistory || null,
     ensName,
     ensData,
     bnsName,
     followerQuality,
     externalReputation: null,
     mutualOverlap: overlap.overlapScore,
+    walletGraph,
+    suggestions,
+    socialGraph,
+    // Surface locally stored proofs (optional, may be empty)
+    proofs: (() => {
+      try { return vault.listProofs(); } catch (_) { return []; }
+    })(),
     ...identityConsistency,
   };
 }

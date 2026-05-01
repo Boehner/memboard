@@ -98,27 +98,6 @@ export function computeIntegrityBadges(breakdown = {}) {
   }
 
   // -------------------------------
-  // MEM BADGES
-  // -------------------------------
-  if ((meta.claimsCount ?? 0) >= 5) {
-    badges.push({
-      id: "mem-claimant",
-      label: "Active MEM User",
-      description: "You've claimed MEM rewards multiple times.",
-      color: "from-amber-400 to-orange-500",
-    });
-  }
-
-  if ((meta.memBalance ?? 0) >= 3000) {
-    badges.push({
-      id: "mem-holder",
-      label: "MEM Holder",
-      description: "You maintain a meaningful on-chain MEM balance.",
-      color: "from-orange-300 to-red-400",
-    });
-  }
-
-  // -------------------------------
   // OVERLAP BADGE
   // -------------------------------
   if ((meta.overlapScore ?? 0) >= 0.6) {

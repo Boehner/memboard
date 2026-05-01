@@ -18,6 +18,7 @@ if (!projectId) {
 }
 
 const baseRpc = import.meta.env.VITE_PUBLIC_RPC;
+const ethRpc = import.meta.env.VITE_ETH_MAINNET_RPC;
 
 const config = getDefaultConfig({
   appName: 'MemBoard',
@@ -26,10 +27,10 @@ const config = getDefaultConfig({
   initialChain: base,
   transports: {
     [base.id]: http(baseRpc || 'https://mainnet.base.org'),
-    [mainnet.id]: http(),
-    [polygon.id]: http(),
-    [optimism.id]: http(),
-    [arbitrum.id]: http()
+    [mainnet.id]: http(ethRpc || 'https://cloudflare-eth.com'),
+    [polygon.id]: http('https://polygon-rpc.com'),
+    [optimism.id]: http('https://mainnet.optimism.io'),
+    [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
   },
   ssr: false,
 });

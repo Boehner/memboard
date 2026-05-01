@@ -3,7 +3,6 @@ const DIMENSION_LABELS = {
   wallet: "Wallet Authenticity",
   social: "Social Quality",
   ens: "ENS Credibility",
-  memory: "MEM Activity",
   external: "External Reputation",
   overlap: "Cross-Platform Overlap",
 };
@@ -39,7 +38,6 @@ export function buildIntegrityActions({ score, breakdown }) {
     "wallet",
     "social",
     "ens",
-    "memory",
     "external",
     "overlap",
   ];
@@ -231,45 +229,6 @@ export function buildIntegrityActions({ score, breakdown }) {
           actions.push(
             "Pair your basename with visible activity (social profiles, dApps) so it's clearly tied to a real person."
           );
-        }
-
-        break;
-      }
-
-      // --------------------------------------------------------
-      // MEM ACTIVITY
-      // --------------------------------------------------------
-      case "memory": {
-        const claims = meta.claimsCount ?? 0;
-        const memBalance = meta.memBalance ?? 0;
-
-        if (claims === 0 && memBalance === 0) {
-          summary = "No visible participation in the MEM ecosystem yet.";
-          actions.push(
-            "Check if you’re eligible for any MEM rewards and make your first claim.",
-            "Use the same wallet and identities when interacting with MEM so the protocol can reliably associate activity with you."
-          );
-        } else {
-          if (claims > 0 && memBalance === 0) {
-            summary = "You've interacted with MEM before, but you currently hold no MEM on this address.";
-            actions.push(
-              "If you're still active in the ecosystem, consider keeping a small MEM balance in this wallet to signal ongoing participation."
-            );
-          } else if (claims >= 5 || memBalance >= 100) {
-            summary = "You have a meaningful history of MEM claims or holdings, which is a positive integrity signal.";
-            if (severity !== "excellent") {
-              actions.push(
-                "Continue using the same wallet and identities when interacting with MEM to deepen that history.",
-                "Avoid spreading MEM activity across many disposable wallets; concentration improves the clarity of your reputation."
-              );
-            }
-          } else {
-            summary = "You've started building a MEM history, but it still looks early compared to more established participants.";
-            actions.push(
-              "Claim new rewards when they're available instead of leaving them unclaimed.",
-              "Engage with MEM-aligned apps or communities using the same wallet so your involvement looks consistent rather than one-off."
-            );
-          }
         }
 
         break;

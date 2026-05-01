@@ -148,12 +148,6 @@ export default function WhyMyScore({
               Average Followers: <strong>{Math.round(meta.avgFollowers)}</strong>
             </li>
             <li>
-              MEM Claims: <strong>{meta.claimsCount}</strong>
-            </li>
-            <li>
-              MEM Balance: <strong>{Math.round(meta.memBalance)}</strong>
-            </li>
-            <li>
               ENS Age:{" "}
               <strong>
                 {meta.ensAgeDays ? `${meta.ensAgeDays} days` : "No ENS"}
